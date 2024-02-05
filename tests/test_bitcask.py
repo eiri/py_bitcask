@@ -36,6 +36,11 @@ def test_merge():
     assert ok
 
 
+def test_sync():
+    ok = bitcask.sync()
+    assert ok
+
+
 def test_close():
     ok = bitcask.close()
     assert ok
