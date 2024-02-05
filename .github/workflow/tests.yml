@@ -1,0 +1,37 @@
+name: tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    - name: Install poetry
+      run: |
+        python -m pip install poetry
+    - name: Configure poetry
+      run: |
+        poetry config virtualenvs.in-project true
+    - name: Cache the virtualenv
+      uses: actions/cache@v4
+      with:
+        path: ./.venv
+        key: ${{ runner.os }}-venv-${{ hashFiles('**/poetry.lock') }}
+    - name: Install dependencies
+      run: |
+        poetry install
+    - name: Lint
+      run: |
+        poetry run ruff .
+    - name: Run tests
+      run: |
+        poetry run pytest --cov=py_bitcask
