@@ -1,5 +1,5 @@
 # Bitcask
-[![Status](https://github.com/eiri/py_bitcask/workflows/tests/badge.svg)](https://github.com/eiri/py_bitcask/actions)
+[![tests](https://github.com/eiri/py_bitcask/actions/workflows/tests.yml/badge.svg)](https://github.com/eiri/py_bitcask/actions/workflows/tests.yml)
 
 A Log-Structured Hash Table for Fast Key/Value Data.
 
