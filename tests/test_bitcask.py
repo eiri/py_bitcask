@@ -9,19 +9,19 @@ def db():
 
 class TestBitcask:
     def test_open(self, db):
-        ok = db.open('dir')
+        ok = db.open("dir")
         assert ok
 
     def test_get(self, db):
-        value = db.get('key')
-        assert value == 'value'
+        value = db.get("key")
+        assert value == "value"
 
     def test_put(self, db):
-        ok = db.put('key', 'value')
+        ok = db.put("key", "value")
         assert ok
 
     def test_delete(self, db):
-        ok = db.delete('key')
+        ok = db.delete("key")
         assert ok
 
     def test_list_keys(self, db):

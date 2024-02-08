@@ -20,13 +20,13 @@ repos:
     -   id: poetry-check
 -   repo: local
     hooks:
-    -   id: blue
-        name: blue
-        entry: blue
+    -   id: ruff-format
+        name: format
+        entry: ruff format
         language: system
         types: [python]
-    -   id: ruff
-        name: ruff
+    -   id: ruff-check
+        name: check
         entry: ruff check --fix --exit-non-zero-on-fix
         language: system
         types: [python]

@@ -12,13 +12,13 @@ class Singleton(type):
 class Bitcask(metaclass=Singleton):
     def __init__(self):
         self.keydir = {}
-        self.data = {}
+        self.data = bytearray()
 
     def open(self, dataDir):
         return True
 
     def get(self, key):
-        return 'value'
+        return "value"
 
     def put(self, key, value):
         return True
