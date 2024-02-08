@@ -8,6 +8,7 @@ packages = [{include = "py_bitcask", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
+uuid7 = "^0.1.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.2.0"

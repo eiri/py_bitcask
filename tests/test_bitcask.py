@@ -1,10 +1,28 @@
+import random
+import string
+
 import pytest
 from py_bitcask import Bitcask
 
 
+def random_word(lower, upper):
+    return str.encode(
+        "".join(
+            random.choice(string.printable)
+            for _ in range(random.randint(lower, upper))
+        )
+    )
+
+
+# we can scope for module, but re-init on every func check singleton
 @pytest.fixture()
 def db():
     yield Bitcask()
+
+
+@pytest.fixture(scope="module")
+def abc():
+    yield {random_word(1, 8): random_word(9, 49) for _ in range(32)}
 
 
 class TestBitcask:
@@ -12,13 +30,19 @@ class TestBitcask:
         ok = db.open("dir")
         assert ok
 
-    def test_get(self, db):
-        value = db.get("key")
-        assert value == "value"
+    def test_put(self, db, abc):
+        for key, value in abc.items():
+            ok = db.put(key, value)
+            assert ok
 
-    def test_put(self, db):
-        ok = db.put("key", "value")
-        assert ok
+    def test_get(self, db, abc):
+        for key, expect in abc.items():
+            value = db.get(key)
+            assert value == expect
+
+    def test_missing_get(self, db):
+        with pytest.raises(KeyError):
+            db.get(b"missing")
 
     def test_delete(self, db):
         ok = db.delete("key")
