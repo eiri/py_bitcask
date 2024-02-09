@@ -48,13 +48,15 @@ class TestBitcask:
         with pytest.raises(KeyError):
             db.get(b"missing")
 
+    def test_list_keys(self, db, abc):
+        expect = abc.keys()
+        keys = db.list_keys()
+        assert len(keys) == len(expect)
+        assert all(a == b for a, b in zip(keys, expect))
+
     def test_delete(self, db):
         ok = db.delete("key")
         assert ok
-
-    def test_list_keys(self, db):
-        keys = db.list_keys()
-        assert keys == []
 
     def test_fold(self, db):
         resp = db.fold(lambda x: x, [])

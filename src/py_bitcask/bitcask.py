@@ -69,7 +69,7 @@ class Bitcask(metaclass=Singleton):
         return True
 
     def list_keys(self):
-        return []
+        return self.__keydir.keys()
 
     def fold(self, fun, acc):
         return []
