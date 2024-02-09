@@ -66,6 +66,10 @@ class Bitcask(metaclass=Singleton):
         return True
 
     def delete(self, key):
+        if key not in self.__keydir:
+            raise KeyError
+        self._put(key, b"")
+        del self.__keydir[key]
         return True
 
     def list_keys(self):

@@ -54,13 +54,25 @@ class TestBitcask:
         assert len(keys) == len(expect)
         assert all(a == b for a, b in zip(keys, expect))
 
-    def test_delete(self, db):
-        ok = db.delete("key")
-        assert ok
-
     def test_fold(self, db):
         resp = db.fold(lambda x: x, [])
         assert resp == []
+
+    def test_delete(self, db):
+        keys = db.list_keys()
+        assert len(keys) > 0
+        for key in keys:
+            db.get(key)
+            ok = db.delete(key)
+            assert ok
+            with pytest.raises(KeyError):
+                db.get(key)
+        keys = db.list_keys()
+        assert len(keys) == 0
+
+    def test_missing_delete(self, db):
+        with pytest.raises(KeyError):
+            db.delete(b"missing")
 
     def test_merge(self, db):
         ok = db.merge()
