@@ -42,6 +42,11 @@ class Bitcask(metaclass=Singleton):
         return self.data[s_value]
 
     def put(self, key, value):
+        if len(value) == 0:
+            raise ValueError
+        return self._put(key, value)
+
+    def _put(self, key, value):
         tstamp = uuid7().bytes
         block = bytes(
             tstamp

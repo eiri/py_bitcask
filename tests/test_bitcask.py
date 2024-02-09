@@ -35,6 +35,10 @@ class TestBitcask:
             ok = db.put(key, value)
             assert ok
 
+    def test_invalid_put(self, db):
+        with pytest.raises(ValueError):
+            db.put(b"key", b"")
+
     def test_get(self, db, abc):
         for key, expect in abc.items():
             value = db.get(key)
