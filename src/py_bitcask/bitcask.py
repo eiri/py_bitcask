@@ -20,26 +20,26 @@ class Singleton(type):
 
 
 class Bitcask(metaclass=Singleton):
-    S_VAL = slice(FILE_ID_SIZE, FILE_ID_SIZE + ULONG_SZ)
-    S_POS = slice(FILE_ID_SIZE + ULONG_SZ, FILE_ID_SIZE + 2 * ULONG_SZ)
+    V_VALUE = slice(FILE_ID_SIZE, FILE_ID_SIZE + ULONG_SZ)
+    V_POSITION = slice(FILE_ID_SIZE + ULONG_SZ, FILE_ID_SIZE + 2 * ULONG_SZ)
 
     def __init__(self):
-        self.cur = 0
-        self.keydir = {}
-        self.data = bytearray()
+        self.__cur = 0
+        self.__keydir = {}
+        self.__data = bytearray()
 
     def open(self, dataDir):
         return True
 
     def get(self, key):
-        if key not in self.keydir:
+        if key not in self.__keydir:
             raise KeyError
-        value_pos_bin = self.keydir[key][self.S_POS]
+        value_pos_bin = self.__keydir[key][self.V_POSITION]
         value_pos = int.from_bytes(value_pos_bin)
-        value_sz_bin = self.keydir[key][self.S_VAL]
+        value_sz_bin = self.__keydir[key][self.V_VALUE]
         value_sz = int.from_bytes(value_sz_bin)
-        s_value = slice(value_pos, value_pos + value_sz)
-        return self.data[s_value]
+        VALUE = slice(value_pos, value_pos + value_sz)
+        return self.__data[VALUE]
 
     def put(self, key, value):
         if len(value) == 0:
@@ -55,12 +55,12 @@ class Bitcask(metaclass=Singleton):
             + key
             + value
         )
-        self.data += binascii.crc32(block).to_bytes(UINT_SZ) + block
-        self.cur += UINT_SZ + len(block)
-        self.keydir[key] = bytes(
+        self.__data += binascii.crc32(block).to_bytes(UINT_SZ) + block
+        self.__cur += UINT_SZ + len(block)
+        self.__keydir[key] = bytes(
             b"0"
             + len(value).to_bytes(ULONG_SZ)
-            + (self.cur - len(value)).to_bytes(ULONG_SZ)
+            + (self.__cur - len(value)).to_bytes(ULONG_SZ)
             + tstamp
         )
         return True
