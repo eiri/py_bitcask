@@ -104,6 +104,20 @@ class TestBitcask:
         fold = db.fold(lambda val, acc: acc + int.from_bytes(val), 0)
         assert fold == sum(range(1, 121))
 
+    def test_delete_update_fold(self, db):
+        keys = db.list_keys()
+        assert len(keys) > 0
+        for idx, key in enumerate(keys):
+            if idx % 2 == 0:
+                ok = db.delete(key)
+                assert ok
+            else:
+                ok = db.put(key, (idx * 100).to_bytes(2))
+                assert ok
+
+        fold = db.fold(lambda val, acc: acc + int.from_bytes(val), 0)
+        assert fold == sum(range(100, 12000, 200))
+
     def test_merge(self, db):
         ok = db.merge()
         assert ok
