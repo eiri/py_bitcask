@@ -1,4 +1,5 @@
 import ctypes
+import io
 import zlib
 
 from uuid_extensions import uuid7
@@ -26,7 +27,7 @@ class Bitcask(metaclass=Singleton):
     def __init__(self):
         self.__cur = 0
         self.__keydir = {}
-        self.__data = bytearray()
+        self.__data = io.BytesIO()
 
     def open(self, dataDir):
         return True
@@ -41,8 +42,10 @@ class Bitcask(metaclass=Singleton):
         value_pos = int.from_bytes(value_pos_bin)
         value_sz_bin = block[self.SIZE]
         value_sz = int.from_bytes(value_sz_bin)
-        VALUE = slice(value_pos, value_pos + value_sz)
-        return self.__data[VALUE]
+        self.__data.seek(value_pos)
+        value = bytearray(value_sz)
+        self.__data.readinto(value)
+        return bytes(value)
 
     def put(self, key, value):
         if len(value) == 0:
@@ -58,7 +61,8 @@ class Bitcask(metaclass=Singleton):
             + key
             + value
         )
-        self.__data += zlib.crc32(block).to_bytes(UINT_SZ) + block
+        self.__data.seek(self.__cur)
+        self.__data.write(zlib.crc32(block).to_bytes(UINT_SZ) + block)
         self.__cur += UINT_SZ + len(block)
         self.__keydir[key] = bytes(
             b"0"
@@ -87,7 +91,9 @@ class Bitcask(metaclass=Singleton):
         return True
 
     def sync(self):
+        self.__data.flush()
         return True
 
     def close(self):
-        return True
+        self.__data.close()
+        return self.__data.closed
