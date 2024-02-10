@@ -38,12 +38,9 @@ class Bitcask(metaclass=Singleton):
         return self._get(self.__keydir[key])
 
     def _get(self, block):
-        value_pos_bin = block[self.POSITION]
-        value_pos = int.from_bytes(value_pos_bin)
-        value_sz_bin = block[self.SIZE]
-        value_sz = int.from_bytes(value_sz_bin)
-        self.__data.seek(value_pos)
+        _, value_sz, value_pos, *_ = block
         value = bytearray(value_sz)
+        self.__data.seek(value_pos)
         self.__data.readinto(value)
         return bytes(value)
 
@@ -54,22 +51,19 @@ class Bitcask(metaclass=Singleton):
 
     def _put(self, key, value):
         tstamp = uuid7().bytes
+        key_sz = len(key)
+        value_sz = len(value)
         block = bytes(
             tstamp
-            + len(key).to_bytes(ULONG_SZ)
-            + len(value).to_bytes(ULONG_SZ)
+            + key_sz.to_bytes(ULONG_SZ)
+            + value_sz.to_bytes(ULONG_SZ)
             + key
             + value
         )
         self.__data.seek(self.__cur)
         self.__data.write(zlib.crc32(block).to_bytes(UINT_SZ) + block)
         self.__cur += UINT_SZ + len(block)
-        self.__keydir[key] = bytes(
-            b"0"
-            + len(value).to_bytes(ULONG_SZ)
-            + (self.__cur - len(value)).to_bytes(ULONG_SZ)
-            + tstamp
-        )
+        self.__keydir[key] = (0, value_sz, self.__cur - value_sz, tstamp)
         return True
 
     def delete(self, key):
