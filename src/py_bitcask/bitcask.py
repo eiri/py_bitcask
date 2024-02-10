@@ -1,5 +1,5 @@
-import binascii
 import ctypes
+import zlib
 
 from uuid_extensions import uuid7
 
@@ -58,7 +58,7 @@ class Bitcask(metaclass=Singleton):
             + key
             + value
         )
-        self.__data += binascii.crc32(block).to_bytes(UINT_SZ) + block
+        self.__data += zlib.crc32(block).to_bytes(UINT_SZ) + block
         self.__cur += UINT_SZ + len(block)
         self.__keydir[key] = bytes(
             b"0"
