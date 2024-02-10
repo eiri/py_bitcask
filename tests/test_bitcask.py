@@ -5,11 +5,10 @@ import pytest
 from py_bitcask import Bitcask
 
 
-def random_word(lower, upper):
+def random_word(lower, upper, table=string.printable):
     return str.encode(
         "".join(
-            random.choice(string.printable)
-            for _ in range(random.randint(lower, upper))
+            random.choice(table) for _ in range(random.randint(lower, upper))
         )
     )
 
@@ -23,6 +22,14 @@ def db():
 @pytest.fixture(scope="module")
 def abc():
     yield {random_word(1, 8): random_word(9, 49) for _ in range(32)}
+
+
+@pytest.fixture(scope="module")
+def seq():
+    yield {
+        random_word(4, 4, string.ascii_lowercase): n.to_bytes(1)
+        for n in range(1, 121)
+    }
 
 
 class TestBitcask:
@@ -54,10 +61,6 @@ class TestBitcask:
         assert len(keys) == len(expect)
         assert all(a == b for a, b in zip(keys, expect))
 
-    def test_fold(self, db):
-        resp = db.fold(lambda x: x, [])
-        assert resp == []
-
     def test_delete(self, db):
         keys = db.list_keys()
         assert len(keys) > 0
@@ -73,6 +76,23 @@ class TestBitcask:
     def test_missing_delete(self, db):
         with pytest.raises(KeyError):
             db.delete(b"missing")
+
+    def test_fold_map(self, db, seq):
+        # prepare key-values
+        for key, value in seq.items():
+            ok = db.put(key, value)
+            assert ok
+
+        def mapper(val, acc):
+            acc.append(int.from_bytes(val))
+            return acc
+
+        map = db.fold(mapper, [])
+        assert map == list(range(1, 121))
+
+    def test_fold_reduce(self, db):
+        fold = db.fold(lambda val, acc: acc + int.from_bytes(val), 0)
+        assert fold == sum(range(1, 121))
 
     def test_merge(self, db):
         ok = db.merge()

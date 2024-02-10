@@ -20,8 +20,8 @@ class Singleton(type):
 
 
 class Bitcask(metaclass=Singleton):
-    V_VALUE = slice(FILE_ID_SIZE, FILE_ID_SIZE + ULONG_SZ)
-    V_POSITION = slice(FILE_ID_SIZE + ULONG_SZ, FILE_ID_SIZE + 2 * ULONG_SZ)
+    SIZE = slice(FILE_ID_SIZE, FILE_ID_SIZE + ULONG_SZ)
+    POSITION = slice(FILE_ID_SIZE + ULONG_SZ, FILE_ID_SIZE + 2 * ULONG_SZ)
 
     def __init__(self):
         self.__cur = 0
@@ -34,9 +34,12 @@ class Bitcask(metaclass=Singleton):
     def get(self, key):
         if key not in self.__keydir:
             raise KeyError
-        value_pos_bin = self.__keydir[key][self.V_POSITION]
+        return self._get(self.__keydir[key])
+
+    def _get(self, block):
+        value_pos_bin = block[self.POSITION]
         value_pos = int.from_bytes(value_pos_bin)
-        value_sz_bin = self.__keydir[key][self.V_VALUE]
+        value_sz_bin = block[self.SIZE]
         value_sz = int.from_bytes(value_sz_bin)
         VALUE = slice(value_pos, value_pos + value_sz)
         return self.__data[VALUE]
@@ -76,7 +79,9 @@ class Bitcask(metaclass=Singleton):
         return list(self.__keydir.keys())
 
     def fold(self, fun, acc):
-        return []
+        for block in self.__keydir.values():
+            acc = fun(self._get(block), acc)
+        return acc
 
     def merge(self):
         return True
