@@ -29,6 +29,6 @@ jobs:
     - name: Lint
       run: poetry run ruff check --show-files --exit-non-zero-on-fix
     - name: Run tests
-      run: poetry run pytest -v --cov=py_bitcask
+      run: poetry run pytest -v --cov --cov-report term-missing
     - name: Build artifacts
       run: poetry build
