@@ -61,6 +61,16 @@ class TestBitcask:
         assert len(keys) == len(expect)
         assert all(a == b for a, b in zip(keys, expect))
 
+    def test_update(self, db):
+        for key in db.list_keys():
+            value = db.get(key)
+            new_value = random_word(3, 9)
+            ok = db.put(key, new_value)
+            assert ok
+            updated_value = db.get(key)
+            assert updated_value != value
+            assert updated_value == new_value
+
     def test_delete(self, db):
         keys = db.list_keys()
         assert len(keys) > 0
