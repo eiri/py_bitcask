@@ -2,6 +2,7 @@ import ctypes
 import io
 import zlib
 from collections import namedtuple
+from struct import pack
 
 from uuid_extensions import uuid7
 
@@ -46,10 +47,10 @@ class Bitcask(metaclass=Singleton):
             raise KeyError
         return self._get(self.__keydir[key])
 
-    def _get(self, block):
-        value = bytearray(block.value_sz)
-        active = self.__dir[block.file_id]
-        active.seek(block.value_pos)
+    def _get(self, keyrec):
+        value = bytearray(keyrec.value_sz)
+        active = self.__dir[keyrec.file_id]
+        active.seek(keyrec.value_pos)
         active.readinto(value)
         return bytes(value)
 
@@ -59,20 +60,15 @@ class Bitcask(metaclass=Singleton):
         return self._put(key, value)
 
     def _put(self, key, value):
-        tstamp = uuid7().bytes
+        tstamp = uuid7()
         key_sz = len(key)
         value_sz = len(value)
-        block = bytes(
-            tstamp
-            + key_sz.to_bytes(ULONG_SZ)
-            + value_sz.to_bytes(ULONG_SZ)
-            + key
-            + value
-        )
+        rec = bytes(tstamp.bytes + pack(">LL", key_sz, value_sz) + key + value)
         active = self.__dir[self.__active]
         active.seek(self.__cur)
-        active.write(zlib.crc32(block).to_bytes(UINT_SZ) + block)
-        self.__cur += UINT_SZ + len(block)
+        active.write(pack(">I", zlib.crc32(rec)))
+        active.write(rec)
+        self.__cur += UINT_SZ + len(rec)
         self.__keydir[key] = self.KeyRec(
             self.__active,
             value_sz,
@@ -94,8 +90,8 @@ class Bitcask(metaclass=Singleton):
         return list(self.__keydir.keys())
 
     def fold(self, fun, acc):
-        for block in self.__keydir.values():
-            acc = fun(self._get(block), acc)
+        for keyrec in self.__keydir.values():
+            acc = fun(self._get(keyrec), acc)
         return acc
 
     def merge(self):
