@@ -1,12 +1,14 @@
 import ctypes
 import io
 import zlib
+from collections import namedtuple
 
 from uuid_extensions import uuid7
 
 UINT_SZ = ctypes.sizeof(ctypes.c_uint)
 ULONG_SZ = ctypes.sizeof(ctypes.c_ulong)
-FILE_ID_SIZE = 1
+
+DEFAULT_THRESHOLD = 1024
 
 
 class Singleton(type):
@@ -21,16 +23,23 @@ class Singleton(type):
 
 
 class Bitcask(metaclass=Singleton):
-    SIZE = slice(FILE_ID_SIZE, FILE_ID_SIZE + ULONG_SZ)
-    POSITION = slice(FILE_ID_SIZE + ULONG_SZ, FILE_ID_SIZE + 2 * ULONG_SZ)
+    KeyRec = namedtuple("KeyRec", "file_id value_sz value_pos tstamp")
 
-    def __init__(self):
-        self.__cur = 0
+    def __init__(self, threshold=DEFAULT_THRESHOLD):
+        self.threshold = threshold
         self.__keydir = {}
-        self.__data = io.BytesIO()
+        self.__dir = {}
+        self.__active = 0
 
     def open(self, dataDir):
+        self._reactivate()
         return True
+
+    def _reactivate(self):
+        active = io.BytesIO()
+        self.__active = id(active)
+        self.__dir[self.__active] = active
+        self.__cur = 0
 
     def get(self, key):
         if key not in self.__keydir:
@@ -38,10 +47,10 @@ class Bitcask(metaclass=Singleton):
         return self._get(self.__keydir[key])
 
     def _get(self, block):
-        _, value_sz, value_pos, *_ = block
-        value = bytearray(value_sz)
-        self.__data.seek(value_pos)
-        self.__data.readinto(value)
+        value = bytearray(block.value_sz)
+        active = self.__dir[block.file_id]
+        active.seek(block.value_pos)
+        active.readinto(value)
         return bytes(value)
 
     def put(self, key, value):
@@ -60,16 +69,24 @@ class Bitcask(metaclass=Singleton):
             + key
             + value
         )
-        self.__data.seek(self.__cur)
-        self.__data.write(zlib.crc32(block).to_bytes(UINT_SZ) + block)
+        active = self.__dir[self.__active]
+        active.seek(self.__cur)
+        active.write(zlib.crc32(block).to_bytes(UINT_SZ) + block)
         self.__cur += UINT_SZ + len(block)
-        self.__keydir[key] = (0, value_sz, self.__cur - value_sz, tstamp)
+        self.__keydir[key] = self.KeyRec(
+            self.__active,
+            value_sz,
+            self.__cur - value_sz,
+            tstamp,
+        )
+        if self.__cur > self.threshold:
+            self._reactivate()
         return True
 
     def delete(self, key):
         if key not in self.__keydir:
             raise KeyError
-        self._put(key, b"")
+        self._put(key, bytes())
         del self.__keydir[key]
         return True
 
@@ -85,9 +102,10 @@ class Bitcask(metaclass=Singleton):
         return True
 
     def sync(self):
-        self.__data.flush()
+        self.__dir[self.__active].flush()
         return True
 
     def close(self):
-        self.__data.close()
-        return self.__data.closed
+        active = self.__dir[self.__active]
+        active.close()
+        return active.closed
