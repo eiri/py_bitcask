@@ -20,12 +20,20 @@ def db():
 
 
 @pytest.fixture(scope="module")
-def abc():
+def randomized():
     yield {random_word(1, 8): random_word(9, 49) for _ in range(32)}
 
 
 @pytest.fixture(scope="module")
-def seq():
+def ordered():
+    yield {
+        n.to_bytes(1): random_word(4, 4, string.ascii_lowercase)
+        for n in range(1, 121)
+    }
+
+
+@pytest.fixture(scope="module")
+def reversed():
     yield {
         random_word(4, 4, string.ascii_lowercase): n.to_bytes(1)
         for n in range(1, 121)
@@ -37,8 +45,8 @@ class TestBitcask:
         ok = db.open("dir")
         assert ok
 
-    def test_put(self, db, abc):
-        for key, value in abc.items():
+    def test_put(self, db, randomized):
+        for key, value in randomized.items():
             ok = db.put(key, value)
             assert ok
 
@@ -46,8 +54,8 @@ class TestBitcask:
         with pytest.raises(ValueError):
             db.put(b"key", b"")
 
-    def test_get(self, db, abc):
-        for key, expect in abc.items():
+    def test_get(self, db, randomized):
+        for key, expect in randomized.items():
             value = db.get(key)
             assert value == expect
 
@@ -55,8 +63,8 @@ class TestBitcask:
         with pytest.raises(KeyError):
             db.get(b"missing")
 
-    def test_list_keys(self, db, abc):
-        expect = abc.keys()
+    def test_list_keys(self, db, randomized):
+        expect = randomized.keys()
         keys = db.list_keys()
         assert len(keys) == len(expect)
         assert all(a == b for a, b in zip(keys, expect))
@@ -87,9 +95,9 @@ class TestBitcask:
         with pytest.raises(KeyError):
             db.delete(b"missing")
 
-    def test_fold_map(self, db, seq):
+    def test_fold_map(self, db, reversed):
         # prepare key-values
-        for key, value in seq.items():
+        for key, value in reversed.items():
             ok = db.put(key, value)
             assert ok
 
