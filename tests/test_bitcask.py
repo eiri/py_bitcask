@@ -93,7 +93,7 @@ class TestBitcask:
             ok = db.put(key, value)
             assert ok
 
-        def mapper(val, acc):
+        def mapper(acc, val):
             acc.append(int.from_bytes(val))
             return acc
 
@@ -101,7 +101,7 @@ class TestBitcask:
         assert map == list(range(1, 121))
 
     def test_fold_reduce(self, db):
-        fold = db.fold(lambda val, acc: acc + int.from_bytes(val), 0)
+        fold = db.fold(lambda acc, val: acc + int.from_bytes(val), 0)
         assert fold == sum(range(1, 121))
 
     def test_delete_update_fold(self, db):
@@ -115,8 +115,13 @@ class TestBitcask:
                 ok = db.put(key, (idx * 100).to_bytes(2))
                 assert ok
 
-        fold = db.fold(lambda val, acc: acc + int.from_bytes(val), 0)
+        fold = db.fold(lambda acc, val: acc + int.from_bytes(val), 0)
         assert fold == sum(range(100, 12000, 200))
+
+    def test_iterate(self, db):
+        expect = list(range(100, 12000, 200))
+        for idx, val in enumerate(db):
+            assert val == expect[idx].to_bytes(2)
 
     def test_merge(self, db):
         ok = db.merge()

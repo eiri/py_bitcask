@@ -2,6 +2,7 @@ import ctypes
 import io
 import zlib
 from collections import namedtuple
+from functools import reduce
 from struct import pack
 
 from uuid_extensions import uuid7
@@ -29,6 +30,7 @@ class Bitcask(metaclass=Singleton):
     def __init__(self, threshold=DEFAULT_THRESHOLD):
         self.threshold = threshold
         self.__keydir = {}
+        self.__iter = None
         self.__dir = {}
         self.__active = 0
 
@@ -90,9 +92,15 @@ class Bitcask(metaclass=Singleton):
         return list(self.__keydir.keys())
 
     def fold(self, fun, acc):
-        for keyrec in self.__keydir.values():
-            acc = fun(self._get(keyrec), acc)
-        return acc
+        return reduce(fun, self, acc)
+
+    def __iter__(self):
+        self.__iter = iter(self.__keydir.values())
+        return self
+
+    def __next__(self):
+        keyrec = next(self.__iter)
+        return self._get(keyrec)
 
     def merge(self):
         return True
