@@ -1,9 +1,9 @@
 import ctypes
 import io
-import zlib
 from collections import namedtuple
 from functools import reduce
 from struct import pack
+from zlib import crc32
 
 from uuid_extensions import uuid7
 
@@ -68,7 +68,7 @@ class Bitcask(metaclass=Singleton):
         rec = bytes(tstamp.bytes + pack(">LL", key_sz, value_sz) + key + value)
         active = self.__dir[self.__active]
         active.seek(self.__cur)
-        active.write(pack(">I", zlib.crc32(rec)))
+        active.write(pack(">I", crc32(rec)))
         active.write(rec)
         self.__cur += UINT_SZ + len(rec)
         self.__keydir[key] = self.KeyRec(
