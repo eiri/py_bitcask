@@ -1,5 +1,6 @@
 import io
-from collections import namedtuple
+import uuid
+from dataclasses import dataclass
 from functools import reduce
 from struct import pack
 from typing import Any, Callable, List, Optional, Union
@@ -19,8 +20,25 @@ class Singleton(type):
         return cls._instances[cls]
 
 
+@dataclass
+class KeyRec:
+    """
+    Represents a record for a key in the keydir index.
+
+    Attributes:
+    - file_id (int): The identifier of the storage file containing the value.
+    - value_sz (int): The size of the value in bytes.
+    - value_pos (int): The position of the value in the storage file.
+    - tstamp (uuid.UUID): The timestamp associated with the key record as uuid7.
+    """
+
+    file_id: int
+    value_sz: int
+    value_pos: int
+    tstamp: Union[uuid.UUID, str, int, bytes]
+
+
 class Bitcask(metaclass=Singleton):
-    KeyRec = namedtuple("KeyRec", "file_id value_sz value_pos tstamp")
     DEFAULT_THRESHOLD = 1024
 
     def __init__(self, threshold: Optional[int] = DEFAULT_THRESHOLD) -> None:
@@ -80,7 +98,7 @@ class Bitcask(metaclass=Singleton):
         Retrieves the value associated with the given key record.
 
         Parameters:
-        - keyrec (KeyRec): The key record containing information about the value.
+        - keyrec (KeyRec): The keydir record containing information about the value.
 
         Returns:
         bytes: The value associated with the key record.
@@ -134,7 +152,7 @@ class Bitcask(metaclass=Singleton):
         active.write(key)
         active.write(value)
         self.__cur += len(crc) + len(head) + key_sz + value_sz
-        self.__keydir[key] = self.KeyRec(
+        self.__keydir[key] = KeyRec(
             self.__active,
             value_sz,
             self.__cur - value_sz,
