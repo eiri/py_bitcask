@@ -1,8 +1,12 @@
 import random
+import shutil
 import string
+from pathlib import Path
 
 import pytest
 from py_bitcask import Bitcask
+
+TEST_DIR = "test_dir"
 
 
 def random_word(lower, upper, table=string.printable):
@@ -13,10 +17,12 @@ def random_word(lower, upper, table=string.printable):
     )
 
 
-# we can scope for module, but re-init on every func check singleton
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def db():
+    test_dir = Path(TEST_DIR)
+    test_dir.mkdir(parents=True, exist_ok=True)
     yield Bitcask()
+    shutil.rmtree(TEST_DIR)
 
 
 @pytest.fixture(scope="module")
@@ -42,7 +48,15 @@ def reversed():
 
 class TestBitcask:
     def test_open(self, db):
-        ok = db.open("dir")
+        ok = db.open(TEST_DIR)
+        assert ok
+
+    def test_open_invalid_dir(self, db):
+        with pytest.raises(NotADirectoryError):
+            db.open("missing")
+
+    def test_open_again(self, db):
+        ok = db.open(TEST_DIR)
         assert ok
 
     def test_put(self, db, randomized):
@@ -140,5 +154,30 @@ class TestBitcask:
         assert ok
 
     def test_close(self, db):
+        ok = db.close()
+        assert ok
+
+
+class TestInMemBitcask:
+    def test_open(self):
+        db = Bitcask()
+        ok = db.open(":memory")
+        assert ok
+
+    def test_put(self, randomized):
+        # should work because this is a singletone
+        db = Bitcask()
+        for key, value in randomized.items():
+            ok = db.put(key, value)
+            assert ok
+
+    def test_get(self, randomized):
+        db = Bitcask()
+        for key, expect in randomized.items():
+            value = db.get(key)
+            assert value == expect
+
+    def test_close(self):
+        db = Bitcask()
         ok = db.close()
         assert ok

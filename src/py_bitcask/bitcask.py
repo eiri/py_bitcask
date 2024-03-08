@@ -1,4 +1,5 @@
 import io
+import os
 import uuid
 from dataclasses import dataclass
 from functools import reduce
@@ -6,7 +7,7 @@ from struct import pack
 from typing import Any, Callable, List, Optional, Union
 from zlib import crc32
 
-from uuid_extensions import uuid7
+from uuid_extensions import uuid7, uuid7str
 
 
 class Singleton(type):
@@ -63,7 +64,16 @@ class Bitcask(metaclass=Singleton):
 
         Returns:
         bool: True if the operation is successful.
+
+        Raises:
+        NotADirectoryError: If the provided path is invalid.
         """
+        if dataDir != ":memory":
+            if not os.path.exists(dataDir) or not os.path.isdir(dataDir):
+                raise NotADirectoryError(
+                    f"The path '{dataDir}' is not a directory."
+                )
+        self.__datadir = dataDir
         self._reactivate()
         return True
 
@@ -71,7 +81,15 @@ class Bitcask(metaclass=Singleton):
         """
         Reactivates the storage by creating a new active storage file.
         """
-        active = io.BytesIO()
+        if self.__datadir == ":memory":
+            active = io.BytesIO()
+        else:
+            if self.__active:
+                prev_file_name = self.__dir[self.__active].name
+                self.close()
+                self.__dir[self.__active] = open(prev_file_name, "rb")
+            file_name = os.path.join(self.__datadir, uuid7str() + ".db")
+            active = open(file_name, "a+b")
         self.__active = id(active)
         self.__dir[self.__active] = active
         self.__cur = 0
