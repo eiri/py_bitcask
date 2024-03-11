@@ -55,7 +55,7 @@ class TestBitcask:
         with pytest.raises(NotADirectoryError):
             db.open("missing")
 
-    def test_open_again(self, db):
+    def test_open_opened(self, db):
         ok = db.open(TEST_DIR)
         assert ok
 
@@ -153,7 +153,36 @@ class TestBitcask:
         ok = db.sync()
         assert ok
 
+
+class TestBitcaskReopen:
+    def test_open(self, db):
+        ok = db.open(TEST_DIR)
+        assert ok
+
+    def test_put(self, db, randomized):
+        for key, value in randomized.items():
+            ok = db.put(key, value)
+            assert ok
+
+    def test_get(self, db, randomized):
+        for key, expect in randomized.items():
+            value = db.get(key)
+            assert value == expect
+
     def test_close(self, db):
+        ok = db.close()
+        assert ok
+
+    def test_reopen(self, db):
+        ok = db.open(TEST_DIR)
+        assert ok
+
+    def test_reread(self, db, randomized):
+        for key, expect in randomized.items():
+            value = db.get(key)
+            assert value == expect
+
+    def test_close_again(self, db):
         ok = db.close()
         assert ok
 

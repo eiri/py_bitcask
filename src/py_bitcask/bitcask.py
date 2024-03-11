@@ -3,7 +3,7 @@ import os
 import uuid
 from dataclasses import dataclass
 from functools import reduce
-from struct import pack
+from struct import pack, unpack
 from typing import Any, Callable, List, Optional, Union
 from zlib import crc32
 
@@ -41,6 +41,8 @@ class KeyRec:
 
 class Bitcask(metaclass=Singleton):
     DEFAULT_THRESHOLD = 1024
+    HEADER_FORMAT = ">I16sLL"
+    header_size = 28  # struct.calcsize(HEADER_FORMAT)
 
     def __init__(self, threshold: Optional[int] = DEFAULT_THRESHOLD) -> None:
         """
@@ -74,8 +76,33 @@ class Bitcask(metaclass=Singleton):
                     f"The path '{dataDir}' is not a directory."
                 )
         self.__datadir = dataDir
+        if self.__datadir != ":memory":
+            self._open()
         self._reactivate()
         return True
+
+    def _open(self) -> None:
+        for file in sorted(os.listdir(self.__datadir)):
+            file_name = os.path.join(self.__datadir, file)
+            if os.path.isfile(file_name) and os.path.getsize(file_name) > 128:
+                current = open(file_name, "rb")
+                uid = id(current)
+                self.__dir[uid] = current
+                while current.tell() < os.path.getsize(file_name):
+                    data = current.read(self.header_size)
+                    _, ts_bytes, key_sz, value_sz = unpack(
+                        self.HEADER_FORMAT, data
+                    )
+                    tstamp = uuid.UUID(int=int.from_bytes(ts_bytes, "big"))
+                    key = current.read(key_sz)
+                    value_pos = current.tell()
+                    self.__keydir[key] = KeyRec(
+                        uid,
+                        value_sz,
+                        value_pos,
+                        tstamp,
+                    )
+                    current.seek(value_sz, 1)
 
     def _reactivate(self) -> None:
         """
@@ -159,7 +186,7 @@ class Bitcask(metaclass=Singleton):
         tstamp = uuid7()
         key_sz = len(key)
         value_sz = len(value)
-        head = bytes(tstamp.bytes + pack(">LL", key_sz, value_sz))
+        head = pack(">16sLL", tstamp.bytes, key_sz, value_sz)
         crc = crc32(head)
         crc = crc32(key, crc)
         crc = pack(">I", crc32(value, crc))
