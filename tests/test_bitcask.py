@@ -31,15 +31,7 @@ def randomized():
 
 
 @pytest.fixture(scope="module")
-def ordered():
-    yield {
-        n.to_bytes(1): random_word(4, 4, string.ascii_lowercase)
-        for n in range(1, 121)
-    }
-
-
-@pytest.fixture(scope="module")
-def reversed():
+def numbered():
     yield {
         random_word(4, 4, string.ascii_lowercase): n.to_bytes(1)
         for n in range(1, 121)
@@ -109,9 +101,9 @@ class TestBitcask:
         with pytest.raises(KeyError):
             db.delete(b"missing")
 
-    def test_fold_map(self, db, reversed):
+    def test_fold_map(self, db, numbered):
         # prepare key-values
-        for key, value in reversed.items():
+        for key, value in numbered.items():
             ok = db.put(key, value)
             assert ok
 
