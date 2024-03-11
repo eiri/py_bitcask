@@ -82,6 +82,12 @@ class Bitcask(metaclass=Singleton):
         return True
 
     def _open(self) -> None:
+        """
+        Reads the storage in the specified data directory and propagates the keydir hash.
+
+        Returns:
+        None
+        """
         for file in sorted(os.listdir(self.__datadir)):
             file_name = os.path.join(self.__datadir, file)
             if os.path.isfile(file_name) and os.path.getsize(file_name) > 128:
