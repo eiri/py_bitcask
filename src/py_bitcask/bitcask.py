@@ -7,7 +7,7 @@ from struct import pack, unpack
 from typing import Any, Callable, List, Optional, Union
 from zlib import crc32
 
-from uuid_extensions import uuid7, uuid7str
+from uuid_extensions import uuid7
 
 
 class Singleton(type):
@@ -52,10 +52,24 @@ class Bitcask(metaclass=Singleton):
         - threshold (Optional[int]): The threshold for triggering reactivation.
         """
         self.threshold = threshold
+        self._reset()
+
+    def _reset(self) -> None:
+        """
+        Resets internal state variables to their initial values.
+
+        This method resets the internal state of the object by clearing the key directory,
+        resetting the iterator, clearing the directory mapping, and setting the active file
+        descriptor to None.
+
+        Returns:
+        None
+        """
+        self.__dirname = None
+        self.__active = None
         self.__keydir = {}
+        self.__datadir = {}
         self.__iter = None
-        self.__dir = {}
-        self.__active = 0
 
     def open(self, dataDir: str) -> bool:
         """
@@ -70,15 +84,16 @@ class Bitcask(metaclass=Singleton):
         Raises:
         NotADirectoryError: If the provided path is invalid.
         """
-        if dataDir != ":memory":
-            if not os.path.exists(dataDir) or not os.path.isdir(dataDir):
-                raise NotADirectoryError(
-                    f"The path '{dataDir}' is not a directory."
-                )
-        self.__datadir = dataDir
-        if self.__datadir != ":memory":
-            self._open()
-        self._reactivate()
+        if dataDir != ":memory" and not (
+            os.path.exists(dataDir) and os.path.isdir(dataDir)
+        ):
+            raise NotADirectoryError(
+                f"The path '{dataDir}' is not a directory."
+            )
+        if self.__dirname is not None:
+            raise RuntimeError("Bitcask is already open.")
+        self.__dirname = dataDir
+        self._open()
         return True
 
     def _open(self) -> None:
@@ -88,12 +103,22 @@ class Bitcask(metaclass=Singleton):
         Returns:
         None
         """
-        for file in sorted(os.listdir(self.__datadir)):
-            file_name = os.path.join(self.__datadir, file)
-            if os.path.isfile(file_name) and os.path.getsize(file_name) > 128:
+        if self.__dirname == ":memory":
+            return
+        files = os.listdir(self.__dirname)
+        files.sort()
+        files.reverse()
+        deleted = {}
+        for file in files:
+            file_name = os.path.join(self.__dirname, file)
+            if (
+                os.path.isfile(file_name)
+                and os.path.getsize(file_name) >= self.header_size
+            ):
+                uuid7str, _ = os.path.splitext(file)
+                uid = crc32(uuid7str.encode("utf-8"))
                 current = open(file_name, "rb")
-                uid = id(current)
-                self.__dir[uid] = current
+                self.__datadir[uid] = current
                 while current.tell() < os.path.getsize(file_name):
                     data = current.read(self.header_size)
                     _, ts_bytes, key_sz, value_sz = unpack(
@@ -102,29 +127,33 @@ class Bitcask(metaclass=Singleton):
                     tstamp = uuid.UUID(int=int.from_bytes(ts_bytes, "big"))
                     key = current.read(key_sz)
                     value_pos = current.tell()
-                    self.__keydir[key] = KeyRec(
-                        uid,
-                        value_sz,
-                        value_pos,
-                        tstamp,
-                    )
+                    if value_sz == 0:
+                        deleted[key] = True
+                        continue
+                    if key not in self.__keydir and key not in deleted:
+                        self.__keydir[key] = KeyRec(
+                            uid,
+                            value_sz,
+                            value_pos,
+                            tstamp,
+                        )
                     current.seek(value_sz, 1)
 
     def _reactivate(self) -> None:
         """
         Reactivates the storage by creating a new active storage file.
         """
-        if self.__datadir == ":memory":
-            active = io.BytesIO()
-        else:
-            if self.__active:
-                prev_file_name = self.__dir[self.__active].name
-                self.close()
-                self.__dir[self.__active] = open(prev_file_name, "rb")
-            file_name = os.path.join(self.__datadir, uuid7str() + ".db")
-            active = open(file_name, "a+b")
-        self.__active = id(active)
-        self.__dir[self.__active] = active
+        uid = uuid7()
+        new_active = io.BytesIO()
+        if self.__dirname != ":memory":
+            if self.__active is not None:
+                prev_active = self.__datadir[self.__active]
+                prev_active.close()
+                self.__datadir[self.__active] = open(prev_active.name, "rb")
+            file_name = os.path.join(self.__dirname, str(uid) + ".db")
+            new_active = open(file_name, "a+b")
+        self.__active = crc32(uid.bytes)
+        self.__datadir[self.__active] = new_active
         self.__cur = 0
 
     def get(self, key: bytes) -> bytes:
@@ -155,7 +184,7 @@ class Bitcask(metaclass=Singleton):
         bytes: The value associated with the key record.
         """
         value = bytearray(keyrec.value_sz)
-        active = self.__dir[keyrec.file_id]
+        active = self.__datadir[keyrec.file_id]
         active.seek(keyrec.value_pos)
         active.readinto(value)
         return bytes(value)
@@ -189,6 +218,8 @@ class Bitcask(metaclass=Singleton):
         Returns:
         bool: True if the operation is successful.
         """
+        if self.__active is None or self.__cur > self.threshold:
+            self._reactivate()
         tstamp = uuid7()
         key_sz = len(key)
         value_sz = len(value)
@@ -196,7 +227,7 @@ class Bitcask(metaclass=Singleton):
         crc = crc32(head)
         crc = crc32(key, crc)
         crc = pack(">I", crc32(value, crc))
-        active = self.__dir[self.__active]
+        active = self.__datadir[self.__active]
         active.seek(self.__cur)
         active.write(crc)
         active.write(head)
@@ -209,8 +240,6 @@ class Bitcask(metaclass=Singleton):
             self.__cur - value_sz,
             tstamp,
         )
-        if self.__cur > self.threshold:
-            self._reactivate()
         return True
 
     def delete(self, key: bytes) -> bool:
@@ -289,7 +318,7 @@ class Bitcask(metaclass=Singleton):
         Returns:
         bool: True if the operation is successful.
         """
-        self.__dir[self.__active].flush()
+        self.__datadir[self.__active].flush()
         return True
 
     def close(self) -> bool:
@@ -299,6 +328,12 @@ class Bitcask(metaclass=Singleton):
         Returns:
         bool: True if the file is closed.
         """
-        active = self.__dir[self.__active]
-        active.close()
-        return active.closed
+        if self.__active is None:
+            self._reset()
+            return True
+        else:
+            active = self.__datadir[self.__active]
+            active.close()
+            if active.closed:
+                self._reset()
+            return active.closed

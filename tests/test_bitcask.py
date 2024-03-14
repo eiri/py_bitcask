@@ -1,12 +1,9 @@
 import random
-import shutil
 import string
-from pathlib import Path
+import uuid
 
 import pytest
 from py_bitcask import Bitcask
-
-TEST_DIR = "test_dir"
 
 
 def random_word(lower, upper, table=string.printable):
@@ -18,42 +15,44 @@ def random_word(lower, upper, table=string.printable):
 
 
 @pytest.fixture(scope="module")
+def test_dir(tmp_path_factory):
+    return tmp_path_factory.mktemp("bitcask", numbered=True)
+
+
+@pytest.fixture(scope="module")
 def db():
-    test_dir = Path(TEST_DIR)
-    test_dir.mkdir(parents=True, exist_ok=True)
     yield Bitcask()
-    shutil.rmtree(TEST_DIR)
 
 
 @pytest.fixture(scope="module")
 def randomized():
-    yield {random_word(1, 8): random_word(9, 49) for _ in range(32)}
+    yield {
+        uuid.uuid4().bytes: (random_word(9, 49), random_word(3, 33))
+        for _ in range(32)
+    }
 
 
 @pytest.fixture(scope="module")
 def numbered():
-    yield {
-        random_word(4, 4, string.ascii_lowercase): n.to_bytes(1)
-        for n in range(1, 121)
-    }
+    yield {uuid.uuid4().bytes: n.to_bytes(1) for n in range(1, 121)}
 
 
 class TestBitcask:
-    def test_open(self, db):
-        ok = db.open(TEST_DIR)
+    def test_open(self, db, test_dir):
+        ok = db.open(test_dir)
         assert ok
 
     def test_open_invalid_dir(self, db):
         with pytest.raises(NotADirectoryError):
             db.open("missing")
 
-    def test_open_opened(self, db):
-        ok = db.open(TEST_DIR)
-        assert ok
+    def test_open_opened(self, db, test_dir):
+        with pytest.raises(RuntimeError):
+            db.open(test_dir)
 
     def test_put(self, db, randomized):
         for key, value in randomized.items():
-            ok = db.put(key, value)
+            ok = db.put(key, value[0])
             assert ok
 
     def test_invalid_put(self, db):
@@ -63,7 +62,7 @@ class TestBitcask:
     def test_get(self, db, randomized):
         for key, expect in randomized.items():
             value = db.get(key)
-            assert value == expect
+            assert value == expect[0]
 
     def test_missing_get(self, db):
         with pytest.raises(KeyError):
@@ -75,10 +74,11 @@ class TestBitcask:
         assert len(keys) == len(expect)
         assert all(a == b for a, b in zip(keys, expect))
 
-    def test_update(self, db):
-        for key in db.list_keys():
+    def test_update(self, db, randomized):
+        for key, expect in randomized.items():
             value = db.get(key)
-            new_value = random_word(3, 9)
+            assert value == expect[0]
+            new_value = expect[1]
             ok = db.put(key, new_value)
             assert ok
             updated_value = db.get(key)
@@ -100,6 +100,16 @@ class TestBitcask:
     def test_missing_delete(self, db):
         with pytest.raises(KeyError):
             db.delete(b"missing")
+
+    def test_close(self, db):
+        ok = db.close()
+        assert ok
+
+
+class TestBitcaskOperations:
+    def test_open(self, db, test_dir):
+        ok = db.open(test_dir)
+        assert ok
 
     def test_fold_map(self, db, numbered):
         # prepare key-values
@@ -145,34 +155,49 @@ class TestBitcask:
         ok = db.sync()
         assert ok
 
+    def test_close(self, db):
+        ok = db.close()
+        assert ok
+
 
 class TestBitcaskReopen:
-    def test_open(self, db):
-        ok = db.open(TEST_DIR)
+    def test_open(self, db, test_dir):
+        ok = db.open(test_dir)
         assert ok
 
     def test_put(self, db, randomized):
         for key, value in randomized.items():
-            ok = db.put(key, value)
+            ok = db.put(key, value[0])
             assert ok
 
     def test_get(self, db, randomized):
         for key, expect in randomized.items():
             value = db.get(key)
-            assert value == expect
+            assert value == expect[0]
+
+    def test_update(self, db, randomized):
+        for key, expect in randomized.items():
+            value = db.get(key)
+            assert value == expect[0]
+            new_value = expect[1]
+            ok = db.put(key, new_value)
+            assert ok
+            updated_value = db.get(key)
+            assert updated_value != value
+            assert updated_value == new_value
 
     def test_close(self, db):
         ok = db.close()
         assert ok
 
-    def test_reopen(self, db):
-        ok = db.open(TEST_DIR)
+    def test_reopen(self, db, test_dir):
+        ok = db.open(test_dir)
         assert ok
 
     def test_reread(self, db, randomized):
         for key, expect in randomized.items():
             value = db.get(key)
-            assert value == expect
+            assert value == expect[1]
 
     def test_close_again(self, db):
         ok = db.close()
@@ -180,25 +205,20 @@ class TestBitcaskReopen:
 
 
 class TestInMemBitcask:
-    def test_open(self):
-        db = Bitcask()
+    def test_open(self, db):
         ok = db.open(":memory")
         assert ok
 
-    def test_put(self, randomized):
-        # should work because this is a singletone
-        db = Bitcask()
+    def test_put(self, db, randomized):
         for key, value in randomized.items():
-            ok = db.put(key, value)
+            ok = db.put(key, value[0])
             assert ok
 
-    def test_get(self, randomized):
-        db = Bitcask()
+    def test_get(self, db, randomized):
         for key, expect in randomized.items():
             value = db.get(key)
-            assert value == expect
+            assert value == expect[0]
 
-    def test_close(self):
-        db = Bitcask()
+    def test_close(self, db):
         ok = db.close()
         assert ok
