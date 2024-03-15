@@ -10,17 +10,6 @@ from zlib import crc32
 from uuid_extensions import uuid7
 
 
-class Singleton(type):
-    _instances = {}
-
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(
-                *args, **kwargs
-            )
-        return cls._instances[cls]
-
-
 @dataclass
 class KeyRec:
     """
@@ -39,7 +28,7 @@ class KeyRec:
     tstamp: Union[uuid.UUID, str, int, bytes]
 
 
-class Bitcask(metaclass=Singleton):
+class Bitcask:
     DEFAULT_THRESHOLD = 1024
     HEADER_FORMAT = ">I16sLL"
     header_size = 28  # struct.calcsize(HEADER_FORMAT)

@@ -14,17 +14,17 @@ def random_word(lower, upper, table=string.printable):
     )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="class")
 def test_dir(tmp_path_factory):
     return tmp_path_factory.mktemp("bitcask", numbered=True)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="class")
 def db():
     yield Bitcask()
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def randomized():
     yield {
         uuid.uuid4().bytes: (random_word(9, 49), random_word(3, 33))
@@ -32,7 +32,7 @@ def randomized():
     }
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def numbered():
     yield {uuid.uuid4().bytes: n.to_bytes(1) for n in range(1, 121)}
 
