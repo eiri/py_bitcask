@@ -309,6 +309,31 @@ class TestBitcaskMerge:
             i += 1
 
     def test_close(self, db):
+        keys = db.list_keys()
+        print(f"close: {len(keys)}")
+        ok = db.close()
+        assert ok
+
+    def test_reopen(self, db, test_dir):
+        ok = db.open(test_dir)
+        assert ok
+        keys = db.list_keys()
+        print(f"reopen: {len(keys)}")
+
+    def test_check_reopen(self, db, randomized):
+        keys = db.list_keys()
+        assert len(keys) == len(randomized) / 2
+        i = 0
+        for key, expect in randomized.items():
+            if i % 2 == 0:
+                with pytest.raises(KeyError):
+                    db.get(key)
+            else:
+                value = db.get(key)
+                assert value == expect[0]
+            i += 1
+
+    def test_close_again(self, db):
         ok = db.close()
         assert ok
 
@@ -371,6 +396,10 @@ class TestInMemBitcask:
     def test_merge(self, db):
         with pytest.raises(RuntimeError):
             db.merge()
+
+    def test_read_hints(self, db):
+        resp = db._read_hints()
+        assert resp is None
 
     def test_close(self, db):
         ok = db.close()
