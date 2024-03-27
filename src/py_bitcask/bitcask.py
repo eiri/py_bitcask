@@ -70,9 +70,10 @@ class Bitcask:
         """
         Resets internal state variables to their initial values.
 
-        This method resets the internal state of the object by clearing the key directory,
-        resetting the iterator, clearing the directory mapping, and setting the active file
-        descriptor to None.
+        This method resets the internal state of the object by clearing
+        the key directory, resetting the iterator,
+        clearing the directory mapping,
+        and setting the active file descriptor to None.
 
         Returns:
         None
@@ -110,7 +111,8 @@ class Bitcask:
 
     def _open(self) -> None:
         """
-        Reads the storage in the specified data directory and propagates the keydir hash.
+        Reads the storage in the specified data directory
+        and propagates the keydir hash.
 
         Returns:
         None
@@ -328,7 +330,8 @@ class Bitcask:
         self, fun: Callable[[Any, Union[bytes, "Bitcask"]], Any], acc: Any
     ) -> Any:
         """
-        Applies a binary function to the elements in the storage, using an accumulator.
+        Applies a binary function to the elements in the storage,
+        using an accumulator.
 
         Parameters:
         - fun (Callable[[Any, Union[bytes, Bitcask]], Any]): The binary function to be applied.
@@ -341,7 +344,8 @@ class Bitcask:
 
     def __iter__(self):
         """
-        Returns an iterator over the values associated with the keys in the storage.
+        Returns an iterator over the values
+        associated with the keys in the storage.
 
         Returns:
         Bitcask: An iterator object.
