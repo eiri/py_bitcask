@@ -309,16 +309,12 @@ class TestBitcaskMerge:
             i += 1
 
     def test_close(self, db):
-        keys = db.list_keys()
-        print(f"close: {len(keys)}")
         ok = db.close()
         assert ok
 
     def test_reopen(self, db, test_dir):
         ok = db.open(test_dir)
         assert ok
-        keys = db.list_keys()
-        print(f"reopen: {len(keys)}")
 
     def test_check_reopen(self, db, randomized):
         keys = db.list_keys()

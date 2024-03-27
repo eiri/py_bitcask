@@ -1,6 +1,7 @@
 import os
 import shutil
 import uuid
+from collections import namedtuple
 from dataclasses import dataclass
 from functools import reduce
 from io import BytesIO
@@ -136,9 +137,9 @@ class Bitcask:
         Returns:
         None
         """
-        for uid, hints in hint_files.items():
-            file_id = crc32(uid.encode("utf-8"))
-            file_name = os.path.join(self.__dirname, uid + ".db")
+        for file_stem, hints in hint_files.items():
+            file_id = crc32(file_stem.encode("utf-8"))
+            file_name = os.path.join(self.__dirname, file_stem + ".db")
             current = open(file_name, "rb")
             self.__datadir[file_id] = current
             for hint in hints:
@@ -160,20 +161,19 @@ class Bitcask:
         """
         if self.__dirname == ":memory":
             return
-        hint_files = {}
-        seen = {}
-        deleted = {}
+        KeyState = namedtuple("KeyState", "tstamp deleted file_id hint")
+        keys = {}
         files = os.listdir(self.__dirname)
-        files.sort()
-        files.reverse()
         for file in files:
+            file_id, ext = os.path.splitext(file)
+            #  TODO: check if hint file is here and read it instead
+            if ext != ".db":
+                continue
             file_name = os.path.join(self.__dirname, file)
             if (
                 os.path.isfile(file_name)
                 and os.path.getsize(file_name) >= self.header_size
             ):
-                uid, _ = os.path.splitext(file)
-                #  TODO: check if hint file is here and read it instead
                 current = open(file_name, "rb")
                 while current.tell() < os.path.getsize(file_name):
                     data = current.read(self.header_size)
@@ -183,16 +183,18 @@ class Bitcask:
                     tstamp = uuid.UUID(int=int.from_bytes(ts_bytes, "big"))
                     key = current.read(key_sz)
                     value_pos = current.tell()
-                    if value_sz == 0:
-                        deleted[key] = True
-                        continue
-                    if key not in seen and key not in deleted:
-                        seen[key] = True
+                    if key not in keys or keys[key].tstamp < tstamp:
                         hint = Hint(tstamp, key_sz, value_sz, value_pos, key)
-                        if uid not in hint_files:
-                            hint_files[uid] = []
-                        hint_files[uid].append(hint)
+                        deleted = value_sz == 0
+                        keys[key] = KeyState(tstamp, deleted, file_id, hint)
                     current.seek(value_sz, 1)
+        hint_files = {}
+        for key_state in keys.values():
+            if key_state.deleted:
+                continue
+            if key_state.file_id not in hint_files:
+                hint_files[key_state.file_id] = []
+            hint_files[key_state.file_id].append(key_state.hint)
         return hint_files
 
     def _reactivate(self) -> None:
@@ -394,8 +396,8 @@ class Bitcask:
         merge_cask._reactivate()
         # build and store hint fils for merged data files
         hint_files = merge_cask._read_hints()
-        for uid, hints in hint_files.items():
-            hint_file_name = os.path.join(merge_dir, uid + ".hint")
+        for file_stem, hints in hint_files.items():
+            hint_file_name = os.path.join(merge_dir, file_stem + ".hint")
             hint_file = open(hint_file_name, "a+b")
             for hint in hints:
                 head = pack(
