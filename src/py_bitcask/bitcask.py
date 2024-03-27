@@ -1,6 +1,5 @@
 import os
 import shutil
-import uuid
 from collections import namedtuple
 from dataclasses import dataclass
 from functools import reduce
@@ -9,7 +8,7 @@ from struct import pack, unpack
 from typing import Any, Callable, Dict, List, Optional, Union
 from zlib import crc32
 
-from uuid_extensions import uuid7
+import uuid_utils as uuid
 
 
 @dataclass
@@ -227,7 +226,7 @@ class Bitcask:
         """
         Reactivates the storage by creating a new active storage file.
         """
-        uid = uuid7(as_type="str")
+        uid = str(uuid.uuid7())
         new_active = BytesIO()
         if self.__dirname != ":memory":
             if self.__active is not None:
@@ -304,7 +303,7 @@ class Bitcask:
         """
         if self.__active is None or self.__cur > self.threshold:
             self._reactivate()
-        tstamp = uuid7()
+        tstamp = uuid.uuid7()
         key_sz = len(key)
         value_sz = len(value)
         head = pack(">16sLL", tstamp.bytes, key_sz, value_sz)
