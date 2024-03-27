@@ -1,3 +1,4 @@
+import os
 import random
 import string
 import uuid
@@ -28,7 +29,7 @@ def db():
 def randomized():
     yield {
         uuid.uuid4().bytes: (random_word(9, 49), random_word(3, 33))
-        for _ in range(32)
+        for _ in range(64)
     }
 
 
@@ -147,14 +148,6 @@ class TestBitcaskOperations:
         for idx, val in enumerate(db):
             assert val == expect[idx].to_bytes(2)
 
-    def test_merge(self, db):
-        ok = db.merge()
-        assert ok
-
-    def test_sync(self, db):
-        ok = db.sync()
-        assert ok
-
     def test_close(self, db):
         ok = db.close()
         assert ok
@@ -170,21 +163,46 @@ class TestBitcaskReopen:
             ok = db.put(key, value[0])
             assert ok
 
-    def test_get(self, db, randomized):
+    def test_check_put(self, db, randomized):
         for key, expect in randomized.items():
             value = db.get(key)
             assert value == expect[0]
 
     def test_update(self, db, randomized):
+        for key, value in randomized.items():
+            ok = db.put(key, value[1])
+            assert ok
+
+    def test_check_update(self, db, randomized):
         for key, expect in randomized.items():
             value = db.get(key)
-            assert value == expect[0]
-            new_value = expect[1]
-            ok = db.put(key, new_value)
-            assert ok
-            updated_value = db.get(key)
-            assert updated_value != value
-            assert updated_value == new_value
+            assert value == expect[1]
+
+    def test_delete(self, db, randomized):
+        keys = db.list_keys()
+        assert len(keys) == len(randomized)
+        i = 0
+        for key, value in randomized.items():
+            if i % 2 == 0:
+                ok = db.delete(key)
+                assert ok
+            else:
+                ok = db.put(key, value[0])
+                assert ok
+            i += 1
+
+    def test_check_delete(self, db, randomized):
+        keys = db.list_keys()
+        assert len(keys) == len(randomized) / 2
+        i = 0
+        for key, expect in randomized.items():
+            if i % 2 == 0:
+                with pytest.raises(KeyError):
+                    db.get(key)
+            else:
+                value = db.get(key)
+                assert value == expect[0]
+            i += 1
 
     def test_close(self, db):
         ok = db.close()
@@ -194,12 +212,103 @@ class TestBitcaskReopen:
         ok = db.open(test_dir)
         assert ok
 
-    def test_reread(self, db, randomized):
+    def test_check_reopen(self, db, randomized):
+        keys = db.list_keys()
+        assert len(keys) == len(randomized) / 2
+        i = 0
+        for key, expect in randomized.items():
+            if i % 2 == 0:
+                with pytest.raises(KeyError):
+                    db.get(key)
+            else:
+                value = db.get(key)
+                assert value == expect[0]
+            i += 1
+
+    def test_close_again(self, db):
+        ok = db.close()
+        assert ok
+
+
+class TestBitcaskMerge:
+    def test_open(self, db, test_dir):
+        ok = db.open(test_dir)
+        assert ok
+
+    def test_put(self, db, randomized):
+        for key, value in randomized.items():
+            ok = db.put(key, value[0])
+            assert ok
+
+    def test_check_put(self, db, randomized):
+        for key, expect in randomized.items():
+            value = db.get(key)
+            assert value == expect[0]
+
+    def test_update(self, db, randomized):
+        for key, value in randomized.items():
+            ok = db.put(key, value[1])
+            assert ok
+
+    def test_check_update(self, db, randomized):
         for key, expect in randomized.items():
             value = db.get(key)
             assert value == expect[1]
 
-    def test_close_again(self, db):
+    def test_delete(self, db, randomized):
+        keys = db.list_keys()
+        assert len(keys) == len(randomized)
+        i = 0
+        for key, value in randomized.items():
+            if i % 2 == 0:
+                ok = db.delete(key)
+                assert ok
+            else:
+                ok = db.put(key, value[0])
+                assert ok
+            i += 1
+
+    def test_check_delete(self, db, randomized):
+        keys = db.list_keys()
+        assert len(keys) == len(randomized) / 2
+        i = 0
+        for key, expect in randomized.items():
+            if i % 2 == 0:
+                with pytest.raises(KeyError):
+                    db.get(key)
+            else:
+                value = db.get(key)
+                assert value == expect[0]
+            i += 1
+
+    def test_sync(self, db):
+        ok = db.sync()
+        assert ok
+
+    def test_merge(self, db, test_dir):
+        files = os.listdir(test_dir)
+        # normally 12
+        assert len(files) >= 10
+        ok = db.merge()
+        assert ok
+        files = os.listdir(test_dir)
+        # normally 5 - 2 db + 2 hint + active
+        assert len(files) < 10
+
+    def test_check_merge(self, db, randomized):
+        keys = db.list_keys()
+        assert len(keys) == len(randomized) / 2
+        i = 0
+        for key, expect in randomized.items():
+            if i % 2 == 0:
+                with pytest.raises(KeyError):
+                    db.get(key)
+            else:
+                value = db.get(key)
+                assert value == expect[0]
+            i += 1
+
+    def test_close(self, db):
         ok = db.close()
         assert ok
 
@@ -214,10 +323,54 @@ class TestInMemBitcask:
             ok = db.put(key, value[0])
             assert ok
 
-    def test_get(self, db, randomized):
+    def test_check_put(self, db, randomized):
         for key, expect in randomized.items():
             value = db.get(key)
             assert value == expect[0]
+
+    def test_update(self, db, randomized):
+        for key, value in randomized.items():
+            ok = db.put(key, value[1])
+            assert ok
+
+    def test_check_update(self, db, randomized):
+        for key, expect in randomized.items():
+            value = db.get(key)
+            assert value == expect[1]
+
+    def test_delete(self, db, randomized):
+        keys = db.list_keys()
+        assert len(keys) == len(randomized)
+        i = 0
+        for key, value in randomized.items():
+            if i % 2 == 0:
+                ok = db.delete(key)
+                assert ok
+            else:
+                ok = db.put(key, value[0])
+                assert ok
+            i += 1
+
+    def test_check_delete(self, db, randomized):
+        keys = db.list_keys()
+        assert len(keys) == len(randomized) / 2
+        i = 0
+        for key, expect in randomized.items():
+            if i % 2 == 0:
+                with pytest.raises(KeyError):
+                    db.get(key)
+            else:
+                value = db.get(key)
+                assert value == expect[0]
+            i += 1
+
+    def test_sync(self, db):
+        with pytest.raises(RuntimeError):
+            db.sync()
+
+    def test_merge(self, db):
+        with pytest.raises(RuntimeError):
+            db.merge()
 
     def test_close(self, db):
         ok = db.close()
