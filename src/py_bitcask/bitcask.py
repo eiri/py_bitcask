@@ -55,7 +55,7 @@ class Bitcask:
     HEADER_FORMAT = ">I16sLL"
     header_size = 28  # struct.calcsize(HEADER_FORMAT)
     HINT_FORMAT = ">16sLLL"
-    hint_size = 32
+    hint_size = 28
 
     def __init__(self, threshold: Optional[int] = DEFAULT_THRESHOLD) -> None:
         """
@@ -159,24 +159,14 @@ class Bitcask:
 
         Returns None if DataDir been set to ":memory".
         """
-        if self.__dirname == ":memory":
-            return
         KeyState = namedtuple("KeyState", "tstamp deleted file_id hint")
-        keys = {}
-        files = os.listdir(self.__dirname)
-        for file in files:
-            file_id, ext = os.path.splitext(file)
-            #  TODO: check if hint file is here and read it instead
-            if ext != ".db":
-                continue
-            file_name = os.path.join(self.__dirname, file)
-            if (
-                os.path.isfile(file_name)
-                and os.path.getsize(file_name) >= self.header_size
-            ):
-                current = open(file_name, "rb")
-                while current.tell() < os.path.getsize(file_name):
+
+        def read_data_file(file_name, keys):
+            with open(file_name, "rb") as current:
+                while True:
                     data = current.read(self.header_size)
+                    if not data:
+                        break
                     _, ts_bytes, key_sz, value_sz = unpack(
                         self.HEADER_FORMAT, data
                     )
@@ -188,6 +178,42 @@ class Bitcask:
                         deleted = value_sz == 0
                         keys[key] = KeyState(tstamp, deleted, file_id, hint)
                     current.seek(value_sz, 1)
+
+        def read_hint_file(file_name, keys):
+            with open(file_name, "rb") as current:
+                while True:
+                    data = current.read(self.hint_size)
+                    if not data:
+                        break
+                    ts_bytes, key_sz, value_sz, value_pos = unpack(
+                        self.HINT_FORMAT, data
+                    )
+                    tstamp = uuid.UUID(int=int.from_bytes(ts_bytes, "big"))
+                    key = current.read(key_sz)
+                    hint = Hint(tstamp, key_sz, value_sz, value_pos, key)
+                    keys[key] = KeyState(tstamp, False, file_id, hint)
+
+        if self.__dirname == ":memory":
+            return
+        keys = {}
+        files = os.listdir(self.__dirname)
+        for file in files:
+            file_id, ext = os.path.splitext(file)
+            if ext != ".db":
+                continue
+            file_name = os.path.join(self.__dirname, file_id + ".hint")
+            if (
+                os.path.isfile(file_name)
+                and os.path.getsize(file_name) >= self.hint_size
+            ):
+                read_hint_file(file_name, keys)
+                continue
+            file_name = os.path.join(self.__dirname, file)
+            if (
+                os.path.isfile(file_name)
+                and os.path.getsize(file_name) >= self.header_size
+            ):
+                read_data_file(file_name, keys)
         hint_files = {}
         for key_state in keys.values():
             if key_state.deleted:
