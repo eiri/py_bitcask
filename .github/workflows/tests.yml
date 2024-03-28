@@ -10,7 +10,8 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v4
     - name: Setup python
       uses: actions/setup-python@v5
       with:
@@ -25,7 +26,7 @@ jobs:
         path: ./.venv
         key: ${{ runner.os }}-venv-${{ hashFiles('**/poetry.lock') }}
     - name: Install dependencies
-      run: poetry install
+      run: poetry install --without docs
     - name: Lint
       run: poetry run ruff check --show-files --exit-non-zero-on-fix
     - name: Run tests
