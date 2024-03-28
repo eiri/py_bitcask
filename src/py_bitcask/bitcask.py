@@ -17,10 +17,10 @@ class KeyRec:
     Represents a record for a key in the keydir index.
 
     Attributes:
-    - file_id (int): The identifier of the storage file containing the value.
-    - value_sz (int): The size of the value in bytes.
-    - value_pos (int): The position of the value in the storage file.
-    - tstamp (uuid.UUID): The timestamp associated with the key record as uuid7.
+        file_id (int): The identifier of the storage file containing the value.
+        value_sz (int): The size of the value in bytes.
+        value_pos (int): The position of the value in the storage file.
+        tstamp (uuid.UUID): The timestamp associated with the key record as uuid7.
     """
 
     file_id: int
@@ -35,11 +35,11 @@ class Hint:
     Represents a hint item in a Bitcask hint file.
 
     Attributes:
-    - tstamp (uuid.UUID): The timestamp associated with the key record as uuid7.
-    - key_sz (int): The size of the key in bytes.
-    - value_sz (int): The size of the value in bytes.
-    - value_pos (int): The position of the value within the corresponding data file.
-    - key (bytes): The key associated with the data value.
+        tstamp (uuid.UUID): The timestamp associated with the key record as uuid7.
+        key_sz (int): The size of the key in bytes.
+        value_sz (int): The size of the value in bytes.
+        value_pos (int): The position of the value within the corresponding data file.
+        key (bytes): The key associated with the data value.
     """
 
     tstamp: Union[uuid.UUID, str, int, bytes]
@@ -61,7 +61,7 @@ class Bitcask:
         Initializes a new instance of the class.
 
         Parameters:
-        - threshold (Optional[int]): The threshold for triggering reactivation.
+            threshold (Optional[int]): The threshold for triggering reactivation.
         """
         self.threshold = threshold
         self._reset()
@@ -76,7 +76,7 @@ class Bitcask:
         and setting the active file descriptor to None.
 
         Returns:
-        None
+            None
         """
         self.__dirname = None
         self.__active = None
@@ -89,13 +89,13 @@ class Bitcask:
         Opens the storage in the specified data directory.
 
         Parameters:
-        - dataDir (str): The data directory to open.
+            dataDir (str): The data directory to open.
 
         Returns:
-        bool: True if the operation is successful.
+            bool: True if the operation is successful.
 
         Raises:
-        NotADirectoryError: If the provided path is invalid.
+            NotADirectoryError: If the provided path is invalid.
         """
         if dataDir != ":memory" and not (
             os.path.exists(dataDir) and os.path.isdir(dataDir)
@@ -115,7 +115,7 @@ class Bitcask:
         and propagates the keydir hash.
 
         Returns:
-        None
+            None
         """
         if self.__dirname == ":memory":
             return
@@ -129,12 +129,12 @@ class Bitcask:
         the hint files.
 
         Parameters:
-        - hint_files (Dict[str, List[Hint]]): A dictionary where
-        keys are data file names in form of uuid7
-        and values are lists of Hint objects representing hint files.
+            hint_files (Dict[str, List[Hint]]): A dictionary where
+            keys are data file names in form of uuid7
+            and values are lists of Hint objects representing hint files.
 
         Returns:
-        None
+            None
         """
         for file_stem, hints in hint_files.items():
             file_id = crc32(file_stem.encode("utf-8"))
@@ -152,9 +152,9 @@ class Bitcask:
         and returns a dictionary of hint files.
 
         Returns:
-        Optional[Dict[str, List[Hint]]]: A dictionary where
-        keys are data file names in form of uuid7
-        and values are lists of Hint objects representing hint files.
+            Optional[Dict[str, List[Hint]]]: A dictionary where
+            keys are data file names in form of uuid7
+            and values are lists of Hint objects representing hint files.
 
         Returns None if DataDir been set to ":memory".
         """
@@ -244,13 +244,13 @@ class Bitcask:
         Retrieves the value associated with the given key.
 
         Parameters:
-        - key (bytes): The key for which the value is to be retrieved.
+            key (bytes): The key for which the value is to be retrieved.
 
         Returns:
-        bytes: The value associated with the key.
+            bytes: The value associated with the key.
 
         Raises:
-        KeyError: If the key is not present in the storage.
+            KeyError: If the key is not present in the storage.
         """
         if key not in self.__keydir:
             raise KeyError("Key not found.")
@@ -261,10 +261,10 @@ class Bitcask:
         Retrieves the value associated with the given key record.
 
         Parameters:
-        - keyrec (KeyRec): The keydir record containing information about the value.
+            keyrec (KeyRec): The keydir record containing information about the value.
 
         Returns:
-        bytes: The value associated with the key record.
+            bytes: The value associated with the key record.
         """
         value = bytearray(keyrec.value_sz)
         active = self.__datadir[keyrec.file_id]
@@ -277,14 +277,14 @@ class Bitcask:
         Adds a key-value pair to the storage.
 
         Parameters:
-        - key (bytes): The key to be added.
-        - value (bytes): The value corresponding to the key.
+            key (bytes): The key to be added.
+            value (bytes): The value corresponding to the key.
 
         Returns:
-        bool: True if the operation is successful.
+            bool: True if the operation is successful.
 
         Raises:
-        ValueError: If the length of the value is zero.
+            ValueError: If the length of the value is zero.
         """
         if len(value) == 0:
             raise ValueError("Value cannot be empty.")
@@ -295,11 +295,11 @@ class Bitcask:
         Adds a key-value pair to the storage.
 
         Parameters:
-        - key (bytes): The key to be added.
-        - value (bytes): The value corresponding to the key.
+            key (bytes): The key to be added.
+            value (bytes): The value corresponding to the key.
 
         Returns:
-        bool: True if the operation is successful.
+            bool: True if the operation is successful.
         """
         if self.__active is None or self.__cur > self.threshold:
             self._reactivate()
@@ -330,13 +330,13 @@ class Bitcask:
         Deletes the key-value pair associated with the given key.
 
         Parameters:
-        - key (bytes): The key to be deleted.
+            key (bytes): The key to be deleted.
 
         Returns:
-        bool: True if the operation is successful.
+            bool: True if the operation is successful.
 
         Raises:
-        KeyError: If the key is not present in the storage.
+            KeyError: If the key is not present in the storage.
         """
         if key not in self.__keydir:
             raise KeyError("Key not found.")
@@ -349,7 +349,7 @@ class Bitcask:
         Returns a list of all keys present in the storage.
 
         Returns:
-        List[bytes]: A list of keys.
+            List[bytes]: A list of keys.
         """
         return list(self.__keydir.keys())
 
@@ -361,11 +361,11 @@ class Bitcask:
         using an accumulator.
 
         Parameters:
-        - fun (Callable[[Any, Union[bytes, Bitcask]], Any]): The binary function to be applied.
-        - acc (Any): The initial accumulator value.
+            fun (Callable[[Any, Union[bytes, Bitcask]], Any]): The binary function to be applied.
+            acc (Any): The initial accumulator value.
 
         Returns:
-        Any: The final accumulator value.
+            Any: The final accumulator value.
         """
         return reduce(fun, self, acc)
 
@@ -375,7 +375,7 @@ class Bitcask:
         associated with the keys in the storage.
 
         Returns:
-        Bitcask: An iterator object.
+            Bitcask: An iterator object.
         """
         self.__iter = iter(self.__keydir.values())
         return self
@@ -385,10 +385,10 @@ class Bitcask:
         Returns the next value from the iterator.
 
         Returns:
-        bytes: The next value associated with the key.
+            bytes: The next value associated with the key.
 
         Raises:
-        StopIteration: If there are no more values in the iterator.
+            StopIteration: If there are no more values in the iterator.
         """
         keyrec = next(self.__iter)
         return self._get(keyrec)
@@ -400,10 +400,10 @@ class Bitcask:
         hint files for new merged data files.
 
         Returns:
-        bool: True if the operation is successful.
+            bool: True if the operation is successful.
 
         Raises:
-        RuntimeError: If bitcask is of type :memory.
+            RuntimeError: If bitcask is of type :memory.
         """
         if self.__dirname == ":memory":
             raise RuntimeError("Notsupported operation for type :memory.")
@@ -462,10 +462,10 @@ class Bitcask:
         Force any writes to sync to disk.
 
         Returns:
-        bool: True if the operation is successful.
+            bool: True if the operation is successful.
 
         Raises:
-        RuntimeError: If bitcask is of type :memory.
+            RuntimeError: If bitcask is of type :memory.
         """
         if self.__dirname == ":memory":
             raise RuntimeError("Notsupported operation for type :memory.")
@@ -477,7 +477,7 @@ class Bitcask:
         Closes the active storage file.
 
         Returns:
-        bool: True if the file is closed.
+            bool: True if the file is closed.
         """
         if self.__active is None:
             self._reset()

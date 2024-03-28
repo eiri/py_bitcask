@@ -1,5 +1,4 @@
 # Bitcask
-[![tests](https://github.com/eiri/py_bitcask/actions/workflows/tests.yml/badge.svg)](https://github.com/eiri/py_bitcask/actions/workflows/tests.yml)
 
 A Log-Structured Hash Table for Fast Key/Value Data.
 
@@ -27,7 +26,3 @@ Bitcask employs a merge process to periodically compact data files and reclaim d
 - merge
 - sync
 - close
-
-## License
-
-[MIT](https://github.com/eiri/py_bitcask/blob/master/LICENSE)

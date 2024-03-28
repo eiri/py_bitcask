@@ -1,1 +1,1 @@
-from py_bitcask.bitcask import Bitcask
+from py_bitcask.bitcask import Bitcask, Hint, KeyRec

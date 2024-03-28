@@ -1,0 +1,22 @@
+site_name: Bitcask
+theme:
+  name: "material"
+  palette:
+    primary: blue grey
+  font:
+    text: IBM Plex
+  icon:
+    logo: material/database-cog
+    repo: material/github
+  features:
+    - search.suggest
+plugins:
+  - mkdocstrings
+  - search
+nav:
+  - Welcome: index.md
+  - class Bitcask: bitcask.md
+  - class KeyRec: keyrec.md
+  - class Hint: hint.md
+repo_url: https://github.com/eiri/py_bitcask
+repo_name: eiri/py_bitcask
