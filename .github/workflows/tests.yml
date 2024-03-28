@@ -32,13 +32,9 @@ jobs:
       run: poetry run ruff check --show-files --exit-non-zero-on-fix
     - name: Run tests
       run: poetry run pytest -v --cov --cov-report term-missing
-
-  release:
-    needs: tests
-    runs-on: ubuntu-latest
-    steps:
     - name: Build artifacts
       run: poetry build
+      if: startsWith(github.ref, 'refs/tags/')
     - name: Publish release
       uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/tags/')
