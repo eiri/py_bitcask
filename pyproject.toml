@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "py-bitcask"
-version = "0.1.1"
+version = "0.1.2"
 description = ""
 authors = ["Eric Avdey <eiri@eiri.ca>"]
 readme = "README.md"
